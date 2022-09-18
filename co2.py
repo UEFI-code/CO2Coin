@@ -16,6 +16,7 @@ def verifySig(msg, sig, vk):
     return VerifyingKey.from_string(bytes.fromhex(vk), curve=NIST384p).verify(bytes.fromhex(sig), msg.encode())
 
 chain = []
+jobs = []
 fee = 1
 rewardcoins = 128
 diff = 0
@@ -134,4 +135,6 @@ def demo():
 
 if __name__ == "__main__":
     demo()
+    # listen for new blocks
+  
     # Create thread for mining
