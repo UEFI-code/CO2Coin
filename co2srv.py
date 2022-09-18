@@ -137,13 +137,17 @@ def updateNodes():
                     nodelist.append(node)
                     print('Node %s added!' %node)
 
+miner_need_restart = False
 def Miner(myAddr):
     while True:
         if len(co2.jobs) != 0:
             myjob = co2.jobs[-1]
             myPoW = str(random.randint(0, 2**256)).zfill(512)
-            while not co2.verifyPoW(myPoW):
+            while not (miner_need_restart or co2.verifyPoW(myPoW)):
                 myPoW = str(random.randint(0, 2**256)).zfill(512)
+            if miner_need_restart:
+                miner_need_restart = False
+                continue
             myblock = co2.makeBlock(myjob, myAddr, myPoW)
             if co2.verifyBlock(myblock):
                 print('Block %d mined!' %len(co2.chain))
@@ -154,11 +158,15 @@ def Miner(myAddr):
                 boardcastBlock()
                 co2.chain.append(myblock)
         else:
-            
-            mined = co2.makeWhiteMiningReward(myAddr, '0' * 512)
+            myPoW = str(random.randint(0, 2**256)).zfill(512)
+            while not (miner_need_restart or co2.verifyPoW(myPoW)):
+                myPoW = str(random.randint(0, 2**256)).zfill(512)
+            if miner_need_restart:
+                miner_need_restart = False
+                continue
+            mined = co2.makeWhiteMiningReward(myAddr, myPoW)
             if mined:
                 print('White mined!')
-                print(co2.chain[-1])
             else:
                 print('White mining failed!')
             time.sleep(1)
@@ -183,9 +191,8 @@ if __name__ == '__main__':
     run_epoch = 0
     while True:
         if len(co2.chain) > currentHeight:
-            #miner.stop()
+            miner_need_restart = True
             currentHeight = len(co2.chain)
-            #miner.start()
         if len(co2.jobs) > currentJobs:
             boardcastJobs()
         run_epoch += 1
