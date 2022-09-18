@@ -145,6 +145,6 @@ if __name__ == '__main__':
     while True:
         if len(co2.jobs) != 0:
             myjob = co2.jobs[-1]
-            co2.makeBlock(myjob)
+            co2.makeBlock(myjob, myAddr, '0' * 512)
 
   

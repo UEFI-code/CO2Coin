@@ -64,6 +64,9 @@ def verifyTransaction(transaction):
     return verifySig(hash, sig, sender)
 
 def verifyPoW(PoW):
+    for i in chain:
+        if i[1216:1728] == PoW:
+            return False
     return True
 
 def verifyBlock(block):
