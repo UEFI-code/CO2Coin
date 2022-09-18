@@ -1,9 +1,13 @@
+from random import random
 from site import removeduppaths
 import socket
-import co2
+from co2 import CO2Core as CO2Core
 from threading import Thread
 import os
+import time
+
 nodelist = []
+co2 = CO2Core()
 
 def listener():
     host = socket.gethostname()
@@ -75,6 +79,7 @@ def boardcastJobs():
 def boardcastBlock():
     for node in nodelist:
         s = socket.socket()
+        s.settimeout(1.0)
         s.connect((node, 2333))
         s.send(b'verifyblock')
         buf = s.recv(32)
@@ -132,19 +137,67 @@ def updateNodes():
                     nodelist.append(node)
                     print('Node %s added!' %node)
 
+def Miner(myAddr):
+    while True:
+        if len(co2.jobs) != 0:
+            myjob = co2.jobs[-1]
+            myPoW = str(random.randint(0, 2**256)).zfill(512)
+            while not co2.verifyPoW(myPoW):
+                myPoW = str(random.randint(0, 2**256)).zfill(512)
+            myblock = co2.makeBlock(myjob, myAddr, myPoW)
+            if co2.verifyBlock(myblock):
+                print('Block %d mined!' %len(co2.chain))
+                for i in range(len(co2.jobs)):
+                    if co2.jobs[i] == myjob:
+                        co2.jobs.pop(i)
+                        break
+                boardcastBlock()
+                co2.chain.append(myblock)
+        else:
+            
+            mined = co2.makeWhiteMiningReward(myAddr, '0' * 512)
+            if mined:
+                print('White mined!')
+                print(co2.chain[-1])
+            else:
+                print('White mining failed!')
+            time.sleep(1)
+
 if __name__ == '__main__':
     print('CO2Srv started.')
+    myAddr = '6d731960af08e06ba3e84f660af4af9ccde5d47ba9070602a27687ba6e39b5cb778adcbca6fdef19e99edef115ec6fc9711867ae7e185922596c246f0734640d857c2d7e3f4d87aca6b02f7a891bdccd50ab712af753f0c7d987534bd94fab2b'
+    fileHeight = 0
     if(os.path.exists('chain.txt')):
         co2.chain = open('chain.txt', 'r').readlines()
+        fileHeight = len(co2.chain)
     if(os.path.exists('nodelist.txt')):
         nodelist = open('nodelist.txt', 'r').readlines()
     updateNodes()
     syncHeight()
+    currentHeight = len(co2.chain)
+    currentJobs = len(co2.jobs)
     net = Thread(target=listener)
     net.start()
+    miner = Thread(target=Miner, args=(myAddr,))
+    miner.start()
+    run_epoch = 0
     while True:
-        if len(co2.jobs) != 0:
-            myjob = co2.jobs[-1]
-            co2.makeBlock(myjob, myAddr, '0' * 512)
+        if len(co2.chain) > currentHeight:
+            #miner.stop()
+            currentHeight = len(co2.chain)
+            #miner.start()
+        if len(co2.jobs) > currentJobs:
+            boardcastJobs()
+        run_epoch += 1
+        run_epoch %= 100
+        if run_epoch % 10 == 0:
+            for i in nodelist:
+                open('nodelist.txt', 'a').write(i + '\n')
+            for i in range(fileHeight, len(co2.chain)):
+                open('chain.txt', 'a').write(co2.chain[i] + '\n')
+            fileHeight = len(co2.chain)
+        time.sleep(1)
+    
+            
 
   
