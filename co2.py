@@ -61,6 +61,7 @@ def verifyPoW(PoW):
 
 def verifyBlock(block):
     if(len(block) != 1600):
+        # Data length is wrong
         return False
     if len(chain) == 0:
         previousHash = "0" * 64
