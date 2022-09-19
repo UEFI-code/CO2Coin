@@ -1,3 +1,7 @@
+# Copyright (C) 2022 by The CO2 Project
+# SuperHacker UEFI
+# Path: co2client.py
+
 import socket
 import string
 import co2

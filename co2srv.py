@@ -1,3 +1,7 @@
+# Copyright (C) 2022 by The CO2 Project
+# SuperHacker UEFI
+# Path: co2srv.py
+
 from random import randint
 from site import removeduppaths
 import socket
@@ -52,6 +56,7 @@ class CO2Srv:
                     if self.core.verifyBlock(block):
                         self.removejobByblock(block)
                         self.core.chain.append(block)
+                        self.miner_need_restart = True
                         c.send(b'Verified!')
                     else:
                         c.send(b'inValid Block!')
@@ -144,45 +149,47 @@ class CO2Srv:
         self.blacknodes = []
 
     def syncHeight(self):
-        for node in self.nodelist:
-            s = socket.socket()
-            s.settimeout(3.0)
-            s.connect((node, 2333))
-            if(s.recv(32).decode() == 'CO2Srv'):
-                s.send(b'getblockheight')
-                s.close()
-                remoteHeight = s.recv(32).decode()
-                print('Remote height: %s' %remoteHeight)
-                if int(remoteHeight) > len(self.core.chain):
-                    for i in range(len(self.core.chain), int(remoteHeight)):
-                        s = socket.socket()
-                        s.settimeout(3.0)
-                        s.connect((node, 2333))
-                        if(s.recv(32).decode() == 'CO2Srv'):
-                            s.send(b'syncblock')
-                            buf = s.recv(32)
-                            if buf.decode() == 'n?':
-                                s.send(str(i).encode())
-                                buf = s.recv(1600).decode()
-                                s.close()
-                                if buf != 'Error id!':
-                                    if(self.core.verifyBlock(buf)):
-                                        self.core.chain.append(buf)
-                                        print('Block %d synced from %s' %(i, node))
-                                    else:
-                                        print('Block %d verification failed!' %i)
-                                        break
+        for nodeid in range(len(self.nodelist)):
+            remoteHeight = s.recv(32).decode()
+            print('Remote height: %s' %remoteHeight)
+            if int(remoteHeight) > len(self.core.chain):
+                for i in range(len(self.core.chain), int(remoteHeight)):
+                    s = socket.socket()
+                    s.settimeout(3.0)
+                    s.connect((self.nodelist[nodeid], 2333))
+                    if(s.recv(32).decode() == 'CO2Srv'):
+                        s.send(b'syncblock')
+                        buf = s.recv(32)
+                        if buf.decode() == 'n?':
+                            s.send(str(i).encode())
+                            buf = s.recv(1600).decode()
+                            s.close()
+                            if buf != 'Error id!':
+                                if(self.core.verifyBlock(buf)):
+                                    self.removeJobByBlock(buf)
+                                    self.core.chain.append(buf)
+                                    self.miner_need_restart = True
+                                    print('Block %d synced from %s' %(i, self.nodelist[nodeid]))
                                 else:
-                                    print('Remote Error: Block %d not found!' %i)
+                                    print('Block %d verification failed!' %i)
                                     break
                             else:
-                                s.close()
-                                print('Remote Node Error: %s' %buf.decode())
+                                print('Remote Error: Block %d not found!' %i)
                                 break
                         else:
                             s.close()
-                            print('Remote Node %s Error' %node)
+                            print('Remote Node Error: %s' %buf.decode())
                             break
+                    else:
+                        s.close()
+                        print('Remote Node %s Error' %self.nodelist[nodeid])
+                        break
+            elif remoteHeight == -1:
+                self.blacknodes.append(nodeid)
+                print('Node %s is blacklisted!' %self.nodelist[nodeid])
+        for blackid in self.blacknodes:
+            # Cleanup blacknodes
+            self.nodelist.pop(blackid)
 
     def updateNodes(self):
         host = socket.gethostname()
@@ -212,8 +219,8 @@ class CO2Srv:
                 myblock = self.core.makeBlock(myjob, myAddr, myPoW)
                 if self.core.verifyBlock(myblock):
                     # Search for old job to delete
+                    self.core.chain.append(myblock) # make main thread to publish!
                     self.removeJobByBlock(myblock)
-                    self.core.chain.append(myblock)
                     print('Block %d mined!' %len(self.core.chain))
             else:
                 myPoW = ''
@@ -251,7 +258,6 @@ if __name__ == '__main__':
     while True:
         if len(mySrv.core.chain) > currentHeight:
             currentHeight = len(mySrv.core.chain)
-            mySrv.miner_need_restart = True
             mySrv.boardcastBlock()
         if len(mySrv.core.jobs) > currentJobs:
             currentJobs = len(mySrv.core.jobs)
@@ -261,6 +267,8 @@ if __name__ == '__main__':
         run_epoch += 1
         run_epoch %= 100
         if run_epoch % 10 == 0:
+            mySrv.updateNodes()
+            mySrv.syncHeight()
             for i in mySrv.nodelist:
                 open('nodelist.txt', 'a').write(i + '\n')
             for i in range(fileHeight, len(mySrv.core.chain)):

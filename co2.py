@@ -1,3 +1,7 @@
+# Copyright (C) 2022 by The CO2 Project
+# SuperHacker UEFI
+# Path: co2.py
+
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 import hashlib
 
