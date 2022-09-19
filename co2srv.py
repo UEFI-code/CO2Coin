@@ -211,10 +211,10 @@ class CO2Srv:
                     continue
                 myblock = self.core.makeBlock(myjob, myAddr, myPoW)
                 if self.core.verifyBlock(myblock):
-                    print('Block %d mined!' %len(self.core.chain))
                     # Search for old job to delete
                     self.removeJobByBlock(myblock)
                     self.core.chain.append(myblock)
+                    print('Block %d mined!' %len(self.core.chain))
             else:
                 myPoW = ''
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoW)):
