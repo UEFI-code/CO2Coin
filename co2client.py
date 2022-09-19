@@ -73,7 +73,7 @@ if __name__ == '__main__':
     target_addr = '75d6c47c5287e9b81fb8472d9ebf6635b5e20f5156d4bacb395997767790120b21fbd9ca67d7eed13ff68e3d8de25bd41ffa661742dcd41a00d83f02bcffd0205f248ea2dcb9432454de53097c78f79e6e0f50f5831ddb8ef4e57e7d1288e82e'
     myClient = CO2Client()
     print('Balance before tx: %d' %myClient.getBalance(target_addr))
-    tx = myClient.core.makeTransaction(my_addr, target_addr, -100, 'n' * 320, my_key)
+    tx = myClient.core.makeTransaction(my_addr, target_addr, 233, 'n' * 320, my_key)
     print(tx)
     myClient.publishTransaction(tx)
     time.sleep(10)
