@@ -2,6 +2,8 @@
 # SuperHacker UEFI
 # Path: co2srv.py
 
+from cgi import test
+from codecs import getreader
 from random import randint
 from site import removeduppaths
 import socket
@@ -34,10 +36,6 @@ class CO2Srv:
             s.listen()
             c, addr = s.accept()
             c.settimeout(3.0)
-            
-            if addr[0] != self.hostip and addr[0] != '127.0.0.1' and addr[0] not in self.nodelist:
-                print('Node %s added!' %addr[0])
-                self.nodelist.append(addr[0])
             c.send(b'CO2Srv')
             buf = c.recv(32)
             if buf.decode() == 'getblockheight':
@@ -77,10 +75,29 @@ class CO2Srv:
             elif buf.decode() == 'getnodes':
                 c.send(str(self.nodelist).encode())
             s.close()
+            if addr[0] != self.hostip and addr[0] != '127.0.0.1' and addr[0] not in self.nodelist:
+                remoteH = self.testGetRemoteHeight(addr[0])
+                if remoteH != -1:
+                    print('Node %s added!' %addr[0])
+                    self.nodelist.append(addr[0])
     
     def getRemoteHeight(self, nodeid):
         s = socket.socket()
+        s.settimeout(1)
         s.connect((self.nodelist[nodeid], 2333))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'getblockheight')
+            buf = s.recv(32)
+            s.close()
+            return int(buf.decode())
+        else:
+            s.close()
+            return -1
+    
+    def testGetRemoteHeight(self, nodeip):
+        s = socket.socket()
+        s.settimeout(1)
+        s.connect((nodeip, 2333))
         if s.recv(32).decode() == 'CO2Srv':
             s.send(b'getblockheight')
             buf = s.recv(32)
@@ -96,6 +113,7 @@ class CO2Srv:
             if(remoteH == len(self.core.chain)):
                 for i in range(len(self.core.jobs)):
                     s = socket.socket()
+                    s.settimeout(3.0)
                     s.connect((self.nodelist[nodeid], 2333))
                     if(s.recv(32).decode() == 'CO2Srv'):
                         s.send(b'verifytx')
@@ -192,7 +210,6 @@ class CO2Srv:
             self.nodelist.pop(blackid)
 
     def updateNodes(self):
-        host = socket.gethostname()
         for node in self.nodelist:
             s = socket.socket()
             s.settimeout(3.0)
