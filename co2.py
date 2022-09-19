@@ -66,6 +66,8 @@ class CO2Core:
         return verifySig(hash, sig, sender)
 
     def verifyPoW(self, PoW):
+        if len(PoW) != 512:
+            return False
         for i in self.chain:
             if i[1216:1728] == PoW:
                 print("Not your PoW!")

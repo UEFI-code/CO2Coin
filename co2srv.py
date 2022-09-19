@@ -17,6 +17,12 @@ class CO2Srv:
         self.blacknodes = []
         self.miner_need_restart = False
 
+    def removeJobByBlock(self, block):
+        for i in range(len(self.core.jobs)):
+            if self.core.jobs[i] == block[64:1024]:
+                self.core.jobs.pop(i)
+                break
+    
     def listener(self):
         while True:
             s = socket.socket()
@@ -44,14 +50,11 @@ class CO2Srv:
                 block = c.recv(1600).decode()
                 if block not in self.core.chain:
                     if self.core.verifyBlock(block):
+                        self.removejobByblock(block)
                         self.core.chain.append(block)
-                        for i in range(len(self.core.jobs)):
-                            if self.core.jobs[i] == block[64:1024]:
-                                self.core.jobs.pop(i)
-                                break
                         c.send(b'Verified!')
                     else:
-                        c.send(b'Verification failed!')
+                        c.send(b'inValid Block!')
                 else:
                     c.send(b'Old block!')  
             elif buf.decode() == 'getbalance':
@@ -68,29 +71,45 @@ class CO2Srv:
                     c.send(b'Error transaction!')
             elif buf.decode() == 'getnodes':
                 c.send(str(self.nodelist).encode())
-            s.close()    
-
+            s.close()
+    
+    def getRemoteHeight(self, nodeid):
+        s = socket.socket()
+        s.connect((self.nodelist[nodeid], 2333))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'getblockheight')
+            buf = s.recv(32)
+            s.close()
+            return int(buf.decode())
+        else:
+            s.close()
+            return -1
+    
     def boardcastJobs(self):
         for nodeid in range(len(self.nodelist)):
-            for i in range(len(self.core.jobs)):
-                s = socket.socket()
-                s.connect((self.nodelist[nodeid], 2333))
-                if(s.recv(32).decode() == 'CO2Srv'):
-                    s.send(b'verifytx')
-                    buf = s.recv(32)
-                    if buf.decode() == 'ready':
-                        s.send(self.core.jobs[i].encode())
+            remoteH = self.getRemoteHeight(nodeid)
+            if(remoteH == len(self.core.chain)):
+                for i in range(len(self.core.jobs)):
+                    s = socket.socket()
+                    s.connect((self.nodelist[nodeid], 2333))
+                    if(s.recv(32).decode() == 'CO2Srv'):
+                        s.send(b'verifytx')
                         buf = s.recv(32)
-                        if buf.decode() == 'Verified!':
-                            print('job %d sent to %s' %(i, self.nodelist[nodeid]))
-                        else:
-                            print('job %d sent to %s failed!' %(i, self.nodelist[nodeid]))
-                    s.close()
-                else:
-                    s.close()
-                    self.blacknodes.append(nodeid)
-                    print('Node %s is blacklisted!' %self.nodelist[nodeid])
-                    break
+                        if buf.decode() == 'ready':
+                            s.send(self.core.jobs[i].encode())
+                            buf = s.recv(32)
+                            if buf.decode() == 'Verified!':
+                                print('job %d sent to %s' %(i, self.nodelist[nodeid]))
+                            else:
+                                print('job %d sent to %s failed!' %(i, self.nodelist[nodeid]))
+                        s.close()
+                    else:
+                        s.close()
+                        print('Node %s error!' %self.nodelist[nodeid])
+                        break
+            elif(remoteH  == -1):
+                self.blacknodes.append(self.nodelist[nodeid])
+                print('blacklisted node %s' %self.nodelist[nodeid])
         for blackid in self.blacknodes:
             # Cleanup blacknodes
             self.nodelist.pop(blackid)
@@ -98,23 +117,27 @@ class CO2Srv:
 
     def boardcastBlock(self):
         for nodeid in range(len(self.nodelist)):
-            s = socket.socket()
-            s.settimeout(5.0)
-            s.connect((self.nodelist[nodeid], 2333))
-            if s.recv(32).decode() == 'CO2Srv':
-                s.send(b'verifyblock')
-                buf = s.recv(32)
-                if buf.decode() == 'ready':
-                    s.send(self.core.chain[-1].encode())
+            remoteH = self.getRemoteHeight(nodeid)
+            if(remoteH == len(self.core.chain) - 1):
+                s = socket.socket()
+                s.settimeout(5.0)
+                s.connect((self.nodelist[nodeid], 2333))
+                if s.recv(32).decode() == 'CO2Srv':
+                    s.send(b'verifyblock')
                     buf = s.recv(32)
-                    if buf.decode() == 'Verified!':
-                        print('block sent to %s' %self.nodelist[nodeid])
-                    else:
-                        print('block sent to %s failed!' %self.nodelist[nodeid])
-            else:
+                    if buf.decode() == 'ready':
+                        s.send(self.core.chain[-1].encode())
+                        buf = s.recv(32)
+                        if buf.decode() == 'Verified!':
+                            print('block sent to %s' %self.nodelist[nodeid])
+                        else:
+                            print('Node %s rejected our block!' %self.nodelist[nodeid])
+                else:
+                    print('Node %s error' %self.nodelist[nodeid])
+                s.close()
+            elif(remoteH == -1):
                 self.blacknodes.append(nodeid)
                 print('Node %s is blacklisted!' %self.nodelist[nodeid])
-            s.close()
         for blackid in self.blacknodes:
             # Cleanup blacknodes
             self.nodelist.pop(blackid)
@@ -135,22 +158,31 @@ class CO2Srv:
                         s = socket.socket()
                         s.settimeout(3.0)
                         s.connect((node, 2333))
-                        s.send(b'syncblock')
-                        buf = s.recv(32)
-                        if buf.decode() == 'n?':
-                            s.send(str(i).encode())
-                            buf = s.recv(1600).decode()
-                            s.close()
-                            if buf != 'Error id!':
-                                if(self.core.verifyBlock(buf)):
-                                    self.core.chain.append(buf)
-                                    print('Block %d synced from %s' %(i, node))
+                        if(s.recv(32).decode() == 'CO2Srv'):
+                            s.send(b'syncblock')
+                            buf = s.recv(32)
+                            if buf.decode() == 'n?':
+                                s.send(str(i).encode())
+                                buf = s.recv(1600).decode()
+                                s.close()
+                                if buf != 'Error id!':
+                                    if(self.core.verifyBlock(buf)):
+                                        self.core.chain.append(buf)
+                                        print('Block %d synced from %s' %(i, node))
+                                    else:
+                                        print('Block %d verification failed!' %i)
+                                        break
                                 else:
-                                    print('Block %d verification failed!' %i)
+                                    print('Remote Error: Block %d not found!' %i)
                                     break
                             else:
-                                print('Remote Error: Block %d not found!' %i)
+                                s.close()
+                                print('Remote Node Error: %s' %buf.decode())
                                 break
+                        else:
+                            s.close()
+                            print('Remote Node %s Error' %node)
+                            break
 
     def updateNodes(self):
         host = socket.gethostname()
@@ -171,7 +203,7 @@ class CO2Srv:
         while True:
             if len(self.core.jobs) != 0:
                 myjob = self.core.jobs[-1]
-                myPoW = str(randint(0, 2**256)).zfill(512)
+                myPoW = ''
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoW)):
                     myPoW = str(randint(0, 2**256)).zfill(512)
                 if self.miner_need_restart:
@@ -181,14 +213,10 @@ class CO2Srv:
                 if self.core.verifyBlock(myblock):
                     print('Block %d mined!' %len(self.core.chain))
                     # Search for old job to delete
-                    for i in range(len(self.core.jobs)):
-                        if self.core.jobs[i] == myjob:
-                            self.core.jobs.pop(i)
-                            break
-                    self.boardcastBlock()
+                    self.removeJobByBlock(myblock)
                     self.core.chain.append(myblock)
             else:
-                myPoW = str(randint(0, 2**256)).zfill(512)
+                myPoW = ''
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoW)):
                     myPoW = str(randint(0, 2**256)).zfill(512)
                 if self.miner_need_restart:
@@ -222,10 +250,14 @@ if __name__ == '__main__':
     run_epoch = 0
     while True:
         if len(mySrv.core.chain) > currentHeight:
-            mySrv.miner_need_restart = True
             currentHeight = len(mySrv.core.chain)
+            mySrv.miner_need_restart = True
+            mySrv.boardcastBlock()
         if len(mySrv.core.jobs) > currentJobs:
+            currentJobs = len(mySrv.core.jobs)
             mySrv.boardcastJobs()
+        if len(mySrv.core.jobs) < currentJobs:
+            currentJobs = len(mySrv.core.jobs)
         run_epoch += 1
         run_epoch %= 100
         if run_epoch % 10 == 0:
