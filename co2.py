@@ -50,16 +50,16 @@ class CO2Core:
         if self.checkDoubleSpend(transaction):
             return False
         sender = transaction[0:192]
-        if sender == "0" * 192:
-            if(len(self.jobs) == 0):
-                print("No jobs to verify, but may give you mined reward!")
-                return True
-            print('Pls verify blocks, dont do white!')
-            return False
         receiver = transaction[192:384]
+        if sender == "0" * 192 and receiver == "0" * 192:
+            if(len(self.jobs) == 0):
+                print("No jobs to verify, but may give you white mined reward!")
+                return True
+            print('Pls verify blocks, don\'t do white mining!')
+            return False
         amount = transaction[384:448] # 64 bytes
         asset = transaction[448:768]  # 320 bytes
-        if(int(amount) <= 0 or self.checkBalance(sender) < int(amount)):
+        if(int(amount) <= 0 or (self.checkBalance(sender) - self.fee) < int(amount)):
             return False
         sig = transaction[768:960]  # 192 bytes
         hash = sha256(sender + receiver + amount + asset)
@@ -94,13 +94,6 @@ class CO2Core:
         return self.verifyPoW(blockPoW)
 
     def makeTransaction(self, sender, receiver, amount, asset, sk):
-        if sender != "0" * 192:
-            if amount <= 0:
-                print("Amount must be positive!")
-                return False
-            if self.checkBalance(sender) < amount:
-                print("Not enough balance!")
-                return False
         transaction = sender + receiver + str(amount).zfill(64) + asset
         sig = sign(sha256(transaction), sk)
         return transaction + sig

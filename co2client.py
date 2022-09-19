@@ -1,19 +1,80 @@
 import socket
 import string
- 
-s = socket.socket()
-host = socket.gethostname()
-port = 2333
-s.connect((host, port))
-buf = s.recv(32).decode()
-print(buf.split(',')[0])
+import co2
+import os
+import time
+class CO2Client:
+    def __init__(self):
+        self.core = co2.CO2Core()
+        self.node = socket.gethostname()
+        self.port = 2333
+    
+    def publishBlock(self, block):
+        s = socket.socket()
+        s.connect((self.node, self.port))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'verifyblock')
+            buf = s.recv(32)
+            if buf.decode() == 'ready':
+                s.send(block.encode())
+                buf = s.recv(32)
+                if buf.decode() == 'Verified!':
+                    print('block sent to %s' %self.node)
+                else:
+                    print('block verification failed!')
+            else:
+                print('node not ready!')
+        else:
+            print('node Error!')
+        s.close()
+    
+    def publishTransaction(self, tx):
+        s = socket.socket()
+        s.connect((self.node, self.port))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'verifytx')
+            buf = s.recv(32)
+            if buf.decode() == 'ready':
+                s.send(tx.encode())
+                buf = s.recv(32)
+                if buf.decode() == 'Verified!':
+                    print('tx sent to %s' %self.node)
+                else:
+                    print('tx verification failed!')
+            else:
+                print('node not ready!')
+        else:
+            print('node Error!')
+        s.close()
+    
+    def getBalance(self, address):
+        s = socket.socket()
+        s.settimeout(3)
+        s.connect((self.node, self.port))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'getbalance')
+            buf = s.recv(32)
+            if buf.decode() == 'ready':
+                s.send(address.encode())
+                buf = s.recv(32)
+                s.close()
+                return int(buf.decode())
+            else:
+                print('node not ready!')
+        else:
+            print('node Error!')
+        s.close()
+        return False
 
-
-s.send(b'getnodes')
-buf = s.recv(128).decode()
-print(buf.split()[0][2:-2])
-print(eval(buf)[0])
-s.send(b'75d6c47c5287e9b81fb8472d9ebf6635b5e20f5156d4bacb395997767790120b21fbd9ca67d7eed13ff68e3d8de25bd41ffa661742dcd41a00d83f02bcffd0205f248ea2dcb9432454de53097c78f79e6e0f50f5831ddb8ef4e57e7d1288e82e')
-buf = s.recv(32)
-print(buf.decode())
-s.close()
+if __name__ == '__main__':
+    print('CO2Client v0.1')
+    my_key = 'd10e1416590b938fc8e57088071af877d81ff20dc39707caa3866894a2a80eb59f249184a6e7f2ac25148082aeadbb24'
+    my_addr = '6d731960af08e06ba3e84f660af4af9ccde5d47ba9070602a27687ba6e39b5cb778adcbca6fdef19e99edef115ec6fc9711867ae7e185922596c246f0734640d857c2d7e3f4d87aca6b02f7a891bdccd50ab712af753f0c7d987534bd94fab2b'
+    target_addr = '75d6c47c5287e9b81fb8472d9ebf6635b5e20f5156d4bacb395997767790120b21fbd9ca67d7eed13ff68e3d8de25bd41ffa661742dcd41a00d83f02bcffd0205f248ea2dcb9432454de53097c78f79e6e0f50f5831ddb8ef4e57e7d1288e82e'
+    myClient = CO2Client()
+    print('Balance before tx: %d' %myClient.getBalance(target_addr))
+    tx = myClient.core.makeTransaction(my_addr, target_addr, 100, 'n' * 320, my_key)
+    myClient.publishTransaction(tx)
+    time.sleep(10)
+    print('Balance after tx: %d' %myClient.getBalance(target_addr))
+    
