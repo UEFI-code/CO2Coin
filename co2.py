@@ -69,14 +69,31 @@ class CO2Core:
         hash = sha256(sender + receiver + amount + asset)
         return verifySig(hash, sig, sender)
 
-    def verifyPoW(self, PoW):
-        if len(PoW) != 512:
+    def verifyPoW(self, payload, hash):
+        if len(payload) != 512:
             return False
         for i in self.chain:
-            if i[1216:1728] == PoW:
+            if i[1216:1792] == payload:
                 print("Not your PoW!")
                 return False
-        return True
+        RNA = []
+        j = 0
+        try:    
+            for i in range(512):
+                numA = int(payload[i], 16) % 4
+                numB = (int(payload[i], 16) >> 2) % 4
+                RNA.append(numA)
+                RNA.append(numB)
+                if i % 8 == 0:
+                    numA = int(hash[j], 16) % 4
+                    numB = (int(hash[j], 16) >> 2) % 4
+                    RNA.append(numA)
+                    RNA.append(numB)
+                    j += 1
+            #print(RNA)
+            return True
+        except:
+            return False
 
     def verifyBlock(self, block):
         if(len(block) != 1792):
@@ -93,11 +110,11 @@ class CO2Core:
         if not self.verifyTransaction(blockData):
             return False
         blockMiner = block[1024:1216] # 192 bytes
-        blockPoW = block[1216:1728] # 512 bytes
+        blockPoWPayload = block[1216:1728] # 512 bytes
         blockHash = block[1728:1792] # 64 bytes
-        if(blockHash != sha256(blockPrivousHash + blockData + blockMiner + blockPoW)):
+        if(blockHash != sha256(blockPrivousHash + blockData + blockMiner + blockPoWPayload)):
             return False
-        return self.verifyPoW(blockPoW)
+        return self.verifyPoW(blockPoWPayload, blockHash)
 
     def makeTransaction(self, sender, receiver, amount, asset, sk):
         transaction = sender + receiver + str(amount).zfill(64) + asset
@@ -127,7 +144,7 @@ def demo():
     vk2 = '6d731960af08e06ba3e84f660af4af9ccde5d47ba9070602a27687ba6e39b5cb778adcbca6fdef19e99edef115ec6fc9711867ae7e185922596c246f0734640d857c2d7e3f4d87aca6b02f7a891bdccd50ab712af753f0c7d987534bd94fab2b'
     myobj = CO2Core()
 
-    res = myobj.makeWhiteMiningReward(vk1, 'p' * 512)
+    res = myobj.makeWhiteMiningReward(vk1, 'b' * 512)
     if res:
         print("White mining success!")
     else:
@@ -141,7 +158,7 @@ def demo():
     print("Balance of vk1: " + str(myobj.checkBalance(vk1)))
     trans = myobj.makeTransaction(vk1, vk2, 12, '0' * 320, sk1)
     if trans != False:
-        block = myobj.makeBlock(trans, vk2, 'p' * 512)
+        block = myobj.makeBlock(trans, vk2, '7' * 512)
         if myobj.verifyBlock(block):
             print("Block is valid")
             myobj.chain.append(block)
