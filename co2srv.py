@@ -227,31 +227,39 @@ class CO2Srv:
         while True:
             if len(self.core.jobs) != 0:
                 myjob = self.core.jobs[-1]
-                myPoW = ''
-                while not (self.miner_need_restart or self.core.verifyPoW(myPoW)):
-                    myPoW = str(randint(0, 2**256)).zfill(512)
-                if self.miner_need_restart:
+                myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
+                myBlockHash = myBlock[1728:1792]
+                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
+                    myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                    myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
+                    myBlockHash = myBlock[1728:1792]
+                if self.miner_need_restart: # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
-                myblock = self.core.makeBlock(myjob, myAddr, myPoW)
-                if self.core.verifyBlock(myblock):
-                    # Search for old job to delete
-                    self.core.chain.append(myblock) # make main thread to publish!
-                    self.removeJobByBlock(myblock)
+                if self.core.verifyBlock(myBlock):
+                    self.core.chain.append(myBlock) # make main thread to publish!
+                    self.removeJobByBlock(myBlock)
                     print('Block %d mined!' %len(self.core.chain))
             else:
-                myPoW = ''
-                while not (self.miner_need_restart or self.core.verifyPoW(myPoW)):
-                    myPoW = str(randint(0, 2**256)).zfill(512)
-                if self.miner_need_restart:
+                whiteTrans = self.core.makeWhiteTransaction()
+                myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
+                myBlockHash = myBlock[1728:1792]
+                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
+                    myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                    myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
+                    myBlockHash = myBlock[1728:1792]
+                if self.miner_need_restart: # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
-                mined = self.core.makeWhiteMiningReward(myAddr, myPoW)
-                if mined:
-                    print('White block %d mined!' %len(self.core.chain))
+                if self.core.verifyBlock(myBlock):
+                    self.core.chain.append(myBlock)
+                    print('White Block %d mined!' %len(self.core.chain))
                 else:
-                    print('White mining failed!')
-                time.sleep(5)
+                    print('White Block verification failed!')
+            
+            time.sleep(5)
 
 if __name__ == '__main__':
     print('CO2Srv started.')

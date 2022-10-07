@@ -121,6 +121,9 @@ class CO2Core:
         sig = sign(sha256(transaction), sk)
         return transaction + sig
 
+    def makeWhiteTransaction(self):
+        return self.makeTransaction("0" * 192, "0" * 192, 0, "!" * 320, SigningKey.generate(curve=NIST384p).to_string().hex())
+
     def makeBlock(self, transaction, miner, pow):
         if len(self.chain) == 0:
             previousHash = "0" * 64
