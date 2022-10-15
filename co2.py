@@ -5,6 +5,7 @@
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 import hashlib
 import proteinFold
+import MBEPredictor
 
 def sha256(msg):
     return hashlib.sha256(msg.encode()).hexdigest()
@@ -21,13 +22,16 @@ def verifySig(msg, sig, vk):
     return VerifyingKey.from_string(bytes.fromhex(vk), curve=NIST384p).verify(bytes.fromhex(sig), msg.encode())
 
 class CO2Core:
-    def __init__(self):
+    def __init__(self, loadDL = True):
         self.chain = []
         self.jobs = []
         self.fee = 1
         self.rewardcoins = 128
-        self.diff = 0
-        self.proteinFolder = proteinFold.ProteinFold3D(20, 64, 0)
+        self.diff = 0.01
+        if loadDL:
+            self.proteinFolder = proteinFold.ProteinFold3D(20, 64, 0)
+            self.MBEPredictor = MBEPredictor.MBEPredictor()
+            self.CO2Model = MBEPredictor.loadCO2Model()
 
     def checkBalance(self, address):
         balance = 0
@@ -99,8 +103,12 @@ class CO2Core:
                     j += 1
             #print(RNA)
             y = self.proteinFolder(PepChain)
-            print(y.shape)
-            return True
+            energy = self.MBEPredictor(self.CO2Model, y)[0]
+            #print(energy)
+            if energy > self.diff:
+                return True
+            else:
+                return False
         except:
             print('verify PoW: unexcepted error')
             return False

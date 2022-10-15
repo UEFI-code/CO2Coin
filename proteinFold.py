@@ -57,9 +57,17 @@ class ProteinFold3D(nn.Module):
         )
         self.TranConv3D_G = nn.Sequential(
             nn.ConvTranspose3d(1, 8, (3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1)),
+            nn.BatchNorm3d(8),
+            nn.ReLU(),
             nn.ConvTranspose3d(8, 8, (3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1)),
+            nn.BatchNorm3d(8),
+            nn.ReLU(),
             nn.ConvTranspose3d(8, 8, (3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1)),
-            nn.ConvTranspose3d(8, 8, (3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1))
+            nn.BatchNorm3d(8),
+            nn.ReLU(),
+            nn.ConvTranspose3d(8, 8, (3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1)),
+            nn.BatchNorm3d(8),
+            nn.ReLU()
         )
         self.Conv3D = nn.Conv3d(8, 1, (3, 3, 3), stride=(1, 1, 1))
 

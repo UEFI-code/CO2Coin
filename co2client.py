@@ -9,7 +9,7 @@ import os
 import time
 class CO2Client:
     def __init__(self):
-        self.core = co2.CO2Core()
+        self.core = co2.CO2Core(loadDL=False)
         self.node = socket.gethostname()
         self.port = 2333
     
@@ -80,6 +80,6 @@ if __name__ == '__main__':
     tx = myClient.core.makeTransaction(my_addr, target_addr, 233, 'n' * 320, my_key)
     print(tx)
     myClient.publishTransaction(tx)
-    time.sleep(10)
+    time.sleep(18)
     print('Balance after tx: %d' %myClient.getBalance(target_addr))
     

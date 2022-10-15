@@ -241,7 +241,7 @@ class CO2Srv:
                 myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1728:1792]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
-                    myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                    myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
                     myBlockHash = myBlock[1728:1792]
                 if self.miner_need_restart: # Shit No goto command in python caused this!
@@ -257,7 +257,7 @@ class CO2Srv:
                 myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1728:1792]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
-                    myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                    myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
                     myBlockHash = myBlock[1728:1792]
                 if self.miner_need_restart: # Shit No goto command in python caused this!
