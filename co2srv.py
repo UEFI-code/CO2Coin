@@ -13,6 +13,16 @@ from threading import Thread
 import os
 import time
 
+def genRandPow(length):
+    buf = []
+    for _ in range(length):
+        num = randint(0, 19)
+        if num < 10:
+            buf.append(str(num))
+        else:
+            buf.append(chr(ord('a') + num - 10))
+    return ''.join(buf)
+    
 class CO2Srv:
     def __init__(self):
         self.hostname = socket.gethostname()
@@ -227,7 +237,7 @@ class CO2Srv:
         while True:
             if len(self.core.jobs) != 0:
                 myjob = self.core.jobs[-1]
-                myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1728:1792]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
@@ -243,7 +253,7 @@ class CO2Srv:
                     print('Block %d mined!' %len(self.core.chain))
             else:
                 whiteTrans = self.core.makeWhiteTransaction()
-                myPoWPayload = str(randint(0, 2**256)).zfill(512)
+                myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1728:1792]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):

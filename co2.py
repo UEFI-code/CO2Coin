@@ -4,6 +4,7 @@
 
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 import hashlib
+import proteinFold
 
 def sha256(msg):
     return hashlib.sha256(msg.encode()).hexdigest()
@@ -26,6 +27,7 @@ class CO2Core:
         self.fee = 1
         self.rewardcoins = 128
         self.diff = 0
+        self.proteinFolder = proteinFold.ProteinFold3D(20, 64, 0)
 
     def checkBalance(self, address):
         balance = 0
@@ -76,23 +78,31 @@ class CO2Core:
             if i[1216:1792] == payload:
                 print("Not your PoW!")
                 return False
-        RNA = []
-        j = 0
+        #RNA = []
+        PepChain = []
         try:    
+            j = 0
             for i in range(512):
-                numA = int(payload[i], 16) % 4
-                numB = (int(payload[i], 16) >> 2) % 4
-                RNA.append(numA)
-                RNA.append(numB)
+                # numA = int(payload[i], 16) % 4
+                # numB = (int(payload[i], 16) >> 2) % 4
+                # RNA.append(numA)
+                # RNA.append(numB)
+                num = int(payload[i], 20)
+                PepChain.append(num)
                 if i % 8 == 0:
-                    numA = int(hash[j], 16) % 4
-                    numB = (int(hash[j], 16) >> 2) % 4
-                    RNA.append(numA)
-                    RNA.append(numB)
+                    # numA = int(hash[j], 16) % 4
+                    # numB = (int(hash[j], 16) >> 2) % 4
+                    # RNA.append(numA)
+                    # RNA.append(numB)
+                    num = int(hash[j], 16)
+                    PepChain.append(num)
                     j += 1
             #print(RNA)
+            y = self.proteinFolder(PepChain)
+            print(y.shape)
             return True
         except:
+            print('verify PoW: unexcepted error')
             return False
 
     def verifyBlock(self, block):
@@ -152,7 +162,7 @@ def demo():
         print("White mining success!")
     else:
         print("White mining failed!")
-    res = myobj.makeWhiteMiningReward(vk1, 'p' * 512)
+    res = myobj.makeWhiteMiningReward(vk1, 'g' * 512)
     if res:
         print("White mining success!")
     else:
@@ -167,7 +177,7 @@ def demo():
             myobj.chain.append(block)
     trans = myobj.makeTransaction(vk1, vk2, 12, '0' * 320, sk1)
     if trans != False:
-        block = myobj.makeBlock(trans, vk2, 'p' * 512)
+        block = myobj.makeBlock(trans, vk2, 'i' * 512)
         if myobj.verifyBlock(block):
             print("Block is valid")
             myobj.chain.append(block)
