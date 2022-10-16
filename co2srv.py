@@ -239,11 +239,11 @@ class CO2Srv:
                 myjob = self.core.jobs[-1]
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
-                myBlockHash = myBlock[1728:1792]
+                myBlockHash = myBlock[1744:1808]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
                     myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
-                    myBlockHash = myBlock[1728:1792]
+                    myBlockHash = myBlock[1744:1808]
                 if self.miner_need_restart: # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
@@ -255,11 +255,11 @@ class CO2Srv:
                 whiteTrans = self.core.makeWhiteTransaction()
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
-                myBlockHash = myBlock[1728:1792]
+                myBlockHash = myBlock[1744:1808]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
                     myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
-                    myBlockHash = myBlock[1728:1792]
+                    myBlockHash = myBlock[1744:1808]
                 if self.miner_need_restart: # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
@@ -268,8 +268,35 @@ class CO2Srv:
                     print('White Block %d mined!' %len(self.core.chain))
                 else:
                     print('White Block verification failed!')
-            
             time.sleep(5)
+
+    def optimDiff(self):
+        if(len(self.core.chain) > 1):
+            lastBlock = self.core.chain[-1]
+            lastBlockTime = int(lastBlock[64:80])
+            nowTime = time.time()
+            nowTimeInt = int(nowTime)
+            if(nowTimeInt - lastBlockTime > self.core.blockTime): # Too slow
+                if((nowTimeInt - lastBlockTime) % self.core.blockTimeOptimVarA == 0): # is timeout level to optim
+                    #if(nowTime - nowTimeInt < 0.5): # is time to optim
+                        self.core.diff = self.core.diff * (1 - self.core.blockTimeOptimVarRate)
+                        print('Difficulty decreased to %f' %self.core.diff)
+                        return
+        if(len(self.core.chain) > 2):
+            lastBlock = self.core.chain[-1]
+            lastBlockTime = int(lastBlock[64:80])
+            lastBlock2 = self.core.chain[-2]
+            lastBlock2Time = int(lastBlock2[64:80])
+            nowTime = time.time()
+            nowTimeInt = int(nowTime)
+            if(lastBlockTime - lastBlock2Time < self.core.blockTime): # Too fast
+                if(nowTimeInt - lastBlockTime < self.core.blockTime): # considering optim in blockTime
+                    if((nowTimeInt - lastBlockTime) % self.core.blockTimeOptimVarB == 0):
+                        self.core.diff = self.core.diff * (1 + self.core.blockTimeOptimVarRate)
+                        print('Difficulty increased to %f' %self.core.diff)
+                        return
+
+
 
 if __name__ == '__main__':
     print('CO2Srv started.')
@@ -291,6 +318,7 @@ if __name__ == '__main__':
     miner.start()
     run_epoch = 0
     while True:
+        mySrv.optimDiff()
         if len(mySrv.core.chain) > currentHeight:
             currentHeight = len(mySrv.core.chain)
             mySrv.boardcastBlock()

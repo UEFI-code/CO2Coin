@@ -2,6 +2,7 @@
 # SuperHacker UEFI
 # Path: co2.py
 
+from time import time
 from ecdsa import SigningKey, VerifyingKey, NIST384p
 import hashlib
 import proteinFold
@@ -28,6 +29,10 @@ class CO2Core:
         self.fee = 1
         self.rewardcoins = 128
         self.diff = 0.01
+        self.blockTime =  30
+        self.blockTimeOptimVarA = 5
+        self.blockTimeOptimVarB = 3
+        self.blockTimeOptimVarRate = 0.1
         if loadDL:
             self.proteinFolder = proteinFold.ProteinFold3D(20, 64, 0)
             self.MBEPredictor = MBEPredictor.MBEPredictor()
@@ -103,8 +108,8 @@ class CO2Core:
                     j += 1
             #print(RNA)
             y = self.proteinFolder(PepChain)
-            energy = self.MBEPredictor(self.CO2Model, y)[0]
-            #print(energy)
+            energy = self.MBEPredictor(self.CO2Model, y).detach()[0][0]
+            print('Binding Energy: %f' % float(energy))
             if energy > self.diff:
                 return True
             else:
@@ -114,23 +119,26 @@ class CO2Core:
             return False
 
     def verifyBlock(self, block):
-        if(len(block) != 1792):
+        if(len(block) != 1808):
             # Data length is wrong
             return False
         if len(self.chain) == 0:
             previousHash = "0" * 64
         else:
-            previousHash = self.chain[-1][1728:1792]
+            previousHash = self.chain[-1][1744:1808]
         blockPrivousHash = block[0:64]
         if(blockPrivousHash != previousHash):
             return False
-        blockData = block[64:1024]
+        blockTimestamp = block[64:80]
+        if(int(blockTimestamp) > int(time())):
+            return False
+        blockData = block[80:1040] # 960 bytes
         if not self.verifyTransaction(blockData):
             return False
-        blockMiner = block[1024:1216] # 192 bytes
-        blockPoWPayload = block[1216:1728] # 512 bytes
-        blockHash = block[1728:1792] # 64 bytes
-        if(blockHash != sha256(blockPrivousHash + blockData + blockMiner + blockPoWPayload)):
+        blockMiner = block[1040:1232] # 192 bytes
+        blockPoWPayload = block[1232:1744] # 512 bytes
+        blockHash = block[1744:1808] # 64 bytes
+        if(blockHash != sha256(blockPrivousHash + blockTimestamp + blockData + blockMiner + blockPoWPayload)):
             return False
         return self.verifyPoW(blockPoWPayload, blockHash)
 
@@ -146,8 +154,9 @@ class CO2Core:
         if len(self.chain) == 0:
             previousHash = "0" * 64
         else:
-            previousHash = self.chain[-1][1728:1792]
-        block = previousHash + transaction + miner + pow
+            previousHash = self.chain[-1][1744:1808]
+        timestamp = str(int(time())).zfill(16)
+        block = previousHash + timestamp + transaction + miner + pow
         return block + sha256(block)
 
     def makeWhiteMiningReward(self, receiver, pow):
