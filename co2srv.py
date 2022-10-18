@@ -50,6 +50,8 @@ class CO2Srv:
             buf = c.recv(32)
             if buf.decode() == 'getblockheight':
                 c.send(str(len(self.core.chain)).encode())
+            elif buf.decode() == 'getdiff':
+                c.send(str(self.core.diff).encode())
             elif buf.decode() == 'syncblock':
                 c.send(b'n?')
                 id = int(c.recv(32).decode())
@@ -178,7 +180,7 @@ class CO2Srv:
 
     def syncHeight(self):
         for nodeid in range(len(self.nodelist)):
-            remoteHeight = s.recv(32).decode()
+            remoteHeight = self.getRemoteHeight(nodeid)
             print('Remote height: %s' %remoteHeight)
             if int(remoteHeight) > len(self.core.chain):
                 for i in range(len(self.core.chain), int(remoteHeight)):
@@ -232,7 +234,34 @@ class CO2Srv:
                     if rnode != self.hostip and rnode != '127.0.0.1' and rnode not in self.nodelist:
                         self.nodelist.append(rnode)
                         print('Node %s added!' %rnode)
-
+    
+    def syncDiff(self):
+        for nodeid in range(len(self.nodelist)):
+            remoteHeight = self.getRemoteHeight(nodeid)
+            print('Remote height: %s' %remoteHeight)
+            if int(remoteHeight) > len(self.core.chain):
+                s = socket.socket()
+                s.settimeout(3.0)
+                s.connect((self.nodelist[nodeid], 2333))
+                if(s.recv(32).decode() == 'CO2Srv'):
+                    s.send(b'getdiff')
+                    buf = s.recv(32).decode()
+                    if buf != 'Error!':
+                        self.core.diff = float(buf)
+                        print('Diff synced from %s' %self.nodelist[nodeid])
+                    else:
+                        print('Node %s error' %self.nodelist[nodeid])
+                    s.close()
+                else:
+                    s.close()
+                    print('Node %s error' %self.nodelist[nodeid])
+            elif remoteHeight == -1:
+                self.blacknodes.append(nodeid)
+                print('Node %s is blacklisted!' %self.nodelist[nodeid])
+        for blackid in self.blacknodes:
+            # Cleanup blacknodes
+            self.nodelist.pop(blackid)
+            
     def Miner(self, myAddr):
         while True:
             if len(self.core.jobs) != 0:
@@ -318,7 +347,6 @@ if __name__ == '__main__':
     miner.start()
     run_epoch = 0
     while True:
-        mySrv.optimDiff()
         if len(mySrv.core.chain) > currentHeight:
             currentHeight = len(mySrv.core.chain)
             mySrv.boardcastBlock()
