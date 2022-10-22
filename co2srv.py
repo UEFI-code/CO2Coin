@@ -13,6 +13,7 @@ from threading import Thread
 import os
 import time
 
+
 def genRandPow(length):
     buf = []
     for _ in range(length):
@@ -22,7 +23,8 @@ def genRandPow(length):
         else:
             buf.append(chr(ord('a') + num - 10))
     return ''.join(buf)
-    
+
+
 class CO2Srv:
     def __init__(self):
         self.hostname = socket.gethostname()
@@ -38,7 +40,7 @@ class CO2Srv:
             if self.core.jobs[i] == block[64:1024]:
                 self.core.jobs.pop(i)
                 break
-    
+
     def listener(self):
         while True:
             s = socket.socket()
@@ -71,7 +73,7 @@ class CO2Srv:
                     else:
                         c.send(b'inValid Block!')
                 else:
-                    c.send(b'Old block!')  
+                    c.send(b'Old block!')
             elif buf.decode() == 'getbalance':
                 c.send(b'ready')
                 address = c.recv(192).decode()
@@ -90,9 +92,9 @@ class CO2Srv:
             if addr[0] != self.hostip and addr[0] != '127.0.0.1' and addr[0] not in self.nodelist:
                 remoteH = self.testGetRemoteHeight(addr[0])
                 if remoteH != -1:
-                    print('Node %s added!' %addr[0])
+                    print('Node %s added!' % addr[0])
                     self.nodelist.append(addr[0])
-    
+
     def getRemoteHeight(self, nodeid):
         s = socket.socket()
         s.settimeout(1)
@@ -105,7 +107,7 @@ class CO2Srv:
         else:
             s.close()
             return -1
-    
+
     def testGetRemoteHeight(self, nodeip):
         s = socket.socket()
         s.settimeout(1)
@@ -118,33 +120,35 @@ class CO2Srv:
         else:
             s.close()
             return -1
-    
+
     def boardcastJobs(self):
         for nodeid in range(len(self.nodelist)):
             remoteH = self.getRemoteHeight(nodeid)
-            if(remoteH == len(self.core.chain)):
+            if (remoteH == len(self.core.chain)):
                 for i in range(len(self.core.jobs)):
                     s = socket.socket()
                     s.settimeout(3.0)
                     s.connect((self.nodelist[nodeid], 2333))
-                    if(s.recv(32).decode() == 'CO2Srv'):
+                    if (s.recv(32).decode() == 'CO2Srv'):
                         s.send(b'verifytx')
                         buf = s.recv(32)
                         if buf.decode() == 'ready':
                             s.send(self.core.jobs[i].encode())
                             buf = s.recv(32)
                             if buf.decode() == 'Verified!':
-                                print('job %d sent to %s' %(i, self.nodelist[nodeid]))
+                                print('job %d sent to %s' %
+                                      (i, self.nodelist[nodeid]))
                             else:
-                                print('job %d sent to %s failed!' %(i, self.nodelist[nodeid]))
+                                print('job %d sent to %s failed!' %
+                                      (i, self.nodelist[nodeid]))
                         s.close()
                     else:
                         s.close()
-                        print('Node %s error!' %self.nodelist[nodeid])
+                        print('Node %s error!' % self.nodelist[nodeid])
                         break
-            elif(remoteH  == -1):
+            elif (remoteH == -1):
                 self.blacknodes.append(self.nodelist[nodeid])
-                print('blacklisted node %s' %self.nodelist[nodeid])
+                print('blacklisted node %s' % self.nodelist[nodeid])
         for blackid in self.blacknodes:
             # Cleanup blacknodes
             self.nodelist.pop(blackid)
@@ -153,7 +157,7 @@ class CO2Srv:
     def boardcastBlock(self):
         for nodeid in range(len(self.nodelist)):
             remoteH = self.getRemoteHeight(nodeid)
-            if(remoteH == len(self.core.chain) - 1):
+            if (remoteH == len(self.core.chain) - 1):
                 s = socket.socket()
                 s.settimeout(5.0)
                 s.connect((self.nodelist[nodeid], 2333))
@@ -164,15 +168,16 @@ class CO2Srv:
                         s.send(self.core.chain[-1].encode())
                         buf = s.recv(32)
                         if buf.decode() == 'Verified!':
-                            print('block sent to %s' %self.nodelist[nodeid])
+                            print('block sent to %s' % self.nodelist[nodeid])
                         else:
-                            print('Node %s rejected our block!' %self.nodelist[nodeid])
+                            print('Node %s rejected our block!' %
+                                  self.nodelist[nodeid])
                 else:
-                    print('Node %s error' %self.nodelist[nodeid])
+                    print('Node %s error' % self.nodelist[nodeid])
                 s.close()
-            elif(remoteH == -1):
+            elif (remoteH == -1):
                 self.blacknodes.append(nodeid)
-                print('Node %s is blacklisted!' %self.nodelist[nodeid])
+                print('Node %s is blacklisted!' % self.nodelist[nodeid])
         for blackid in self.blacknodes:
             # Cleanup blacknodes
             self.nodelist.pop(blackid)
@@ -181,13 +186,13 @@ class CO2Srv:
     def syncHeight(self):
         for nodeid in range(len(self.nodelist)):
             remoteHeight = self.getRemoteHeight(nodeid)
-            print('Remote height: %s' %remoteHeight)
+            print('Remote height: %s' % remoteHeight)
             if int(remoteHeight) > len(self.core.chain):
                 for i in range(len(self.core.chain), int(remoteHeight)):
                     s = socket.socket()
                     s.settimeout(3.0)
                     s.connect((self.nodelist[nodeid], 2333))
-                    if(s.recv(32).decode() == 'CO2Srv'):
+                    if (s.recv(32).decode() == 'CO2Srv'):
                         s.send(b'syncblock')
                         buf = s.recv(32)
                         if buf.decode() == 'n?':
@@ -195,28 +200,29 @@ class CO2Srv:
                             buf = s.recv(1600).decode()
                             s.close()
                             if buf != 'Error id!':
-                                if(self.core.verifyBlock(buf)):
+                                if (self.core.verifyBlock(buf)):
                                     self.removeJobByBlock(buf)
                                     self.core.chain.append(buf)
                                     self.miner_need_restart = True
-                                    print('Block %d synced from %s' %(i, self.nodelist[nodeid]))
+                                    print('Block %d synced from %s' %
+                                          (i, self.nodelist[nodeid]))
                                 else:
-                                    print('Block %d verification failed!' %i)
+                                    print('Block %d verification failed!' % i)
                                     break
                             else:
-                                print('Remote Error: Block %d not found!' %i)
+                                print('Remote Error: Block %d not found!' % i)
                                 break
                         else:
                             s.close()
-                            print('Remote Node Error: %s' %buf.decode())
+                            print('Remote Node Error: %s' % buf.decode())
                             break
                     else:
                         s.close()
-                        print('Remote Node %s Error' %self.nodelist[nodeid])
+                        print('Remote Node %s Error' % self.nodelist[nodeid])
                         break
             elif remoteHeight == -1:
                 self.blacknodes.append(nodeid)
-                print('Node %s is blacklisted!' %self.nodelist[nodeid])
+                print('Node %s is blacklisted!' % self.nodelist[nodeid])
         for blackid in self.blacknodes:
             # Cleanup blacknodes
             self.nodelist.pop(blackid)
@@ -226,42 +232,42 @@ class CO2Srv:
             s = socket.socket()
             s.settimeout(3.0)
             s.connect((node, 2333))
-            if(s.recv(32).decode() == 'CO2Srv'):
+            if (s.recv(32).decode() == 'CO2Srv'):
                 s.send(b'getnodes')
                 remoteNodes = eval(s.recv(1024).decode())
                 s.close()
                 for rnode in remoteNodes:
                     if rnode != self.hostip and rnode != '127.0.0.1' and rnode not in self.nodelist:
                         self.nodelist.append(rnode)
-                        print('Node %s added!' %rnode)
-    
-    def syncDiff(self):
-        for nodeid in range(len(self.nodelist)):
-            remoteHeight = self.getRemoteHeight(nodeid)
-            print('Remote height: %s' %remoteHeight)
-            if int(remoteHeight) > len(self.core.chain):
-                s = socket.socket()
-                s.settimeout(3.0)
-                s.connect((self.nodelist[nodeid], 2333))
-                if(s.recv(32).decode() == 'CO2Srv'):
-                    s.send(b'getdiff')
-                    buf = s.recv(32).decode()
-                    if buf != 'Error!':
-                        self.core.diff = float(buf)
-                        print('Diff synced from %s' %self.nodelist[nodeid])
-                    else:
-                        print('Node %s error' %self.nodelist[nodeid])
-                    s.close()
-                else:
-                    s.close()
-                    print('Node %s error' %self.nodelist[nodeid])
-            elif remoteHeight == -1:
-                self.blacknodes.append(nodeid)
-                print('Node %s is blacklisted!' %self.nodelist[nodeid])
-        for blackid in self.blacknodes:
-            # Cleanup blacknodes
-            self.nodelist.pop(blackid)
-            
+                        print('Node %s added!' % rnode)
+
+    # def syncDiff(self):
+    #     for nodeid in range(len(self.nodelist)):
+    #         remoteHeight = self.getRemoteHeight(nodeid)
+    #         print('Remote height: %s' %remoteHeight)
+    #         if int(remoteHeight) > len(self.core.chain):
+    #             s = socket.socket()
+    #             s.settimeout(3.0)
+    #             s.connect((self.nodelist[nodeid], 2333))
+    #             if(s.recv(32).decode() == 'CO2Srv'):
+    #                 s.send(b'getdiff')
+    #                 buf = s.recv(32).decode()
+    #                 if buf != 'Error!':
+    #                     self.core.diff = float(buf)
+    #                     print('Diff synced from %s' %self.nodelist[nodeid])
+    #                 else:
+    #                     print('Node %s error' %self.nodelist[nodeid])
+    #                 s.close()
+    #             else:
+    #                 s.close()
+    #                 print('Node %s error' %self.nodelist[nodeid])
+    #         elif remoteHeight == -1:
+    #             self.blacknodes.append(nodeid)
+    #             print('Node %s is blacklisted!' %self.nodelist[nodeid])
+    #     for blackid in self.blacknodes:
+    #         # Cleanup blacknodes
+    #         self.nodelist.pop(blackid)
+
     def Miner(self, myAddr):
         while True:
             if len(self.core.jobs) != 0:
@@ -269,74 +275,93 @@ class CO2Srv:
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1744:1808]
-                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
+                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)[0]):
                     myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
                     myBlockHash = myBlock[1744:1808]
-                if self.miner_need_restart: # Shit No goto command in python caused this!
+                if self.miner_need_restart:  # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
                 if self.core.verifyBlock(myBlock):
-                    self.core.chain.append(myBlock) # make main thread to publish!
+                    # make main thread to publish!
+                    self.core.chain.append(myBlock)
                     self.removeJobByBlock(myBlock)
-                    print('Block %d mined!' %len(self.core.chain))
+                    print('Block %d mined!' % len(self.core.chain))
             else:
                 whiteTrans = self.core.makeWhiteTransaction()
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
                 myBlockHash = myBlock[1744:1808]
-                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)):
+                while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)[0]):
                     myPoWPayload = genRandPow(512)
-                    myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
+                    myBlock = self.core.makeBlock(
+                        whiteTrans, myAddr, myPoWPayload)
                     myBlockHash = myBlock[1744:1808]
-                if self.miner_need_restart: # Shit No goto command in python caused this!
+                if self.miner_need_restart:  # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
                 if self.core.verifyBlock(myBlock):
                     self.core.chain.append(myBlock)
-                    print('White Block %d mined!' %len(self.core.chain))
+                    print('White Block %d mined!' % len(self.core.chain))
                 else:
                     print('White Block verification failed!')
             time.sleep(5)
 
     def optimDiff(self):
         while True:
-            if(len(self.core.chain) > 1):
-                lastBlock = self.core.chain[-1]
-                lastBlockTime = int(lastBlock[64:80])
-                nowTime = time.time()
-                nowTimeInt = int(nowTime)
-                if(nowTimeInt - lastBlockTime > self.core.blockTime): # Too slow, timeout
-                    #if((nowTimeInt - lastBlockTime) % self.core.blockTimeOptimVarA == 0): # is timeout level to optim
-                        #if(nowTime - nowTimeInt < 0.5): # is time to optim
-                            self.core.diff = self.core.diff * (1 - self.core.blockTimeOptimVarRate)
-                            print('Difficulty decreased to %f' %self.core.diff)
-            if(len(self.core.chain) > 2):
-                lastBlock = self.core.chain[-1]
-                lastBlockTime = int(lastBlock[64:80])
-                lastBlock2 = self.core.chain[-2]
-                lastBlock2Time = int(lastBlock2[64:80])
-                nowTime = time.time()
-                nowTimeInt = int(nowTime)
-                if(lastBlockTime - lastBlock2Time < self.core.blockTime): # Too fast
-                    if(nowTimeInt - lastBlockTime < self.core.blockTime): # considering optim in blockTime
-                        #if((nowTimeInt - lastBlockTime) % self.core.blockTimeOptimVarB == 0):
-                            self.core.diff = self.core.diff * (1 + self.core.blockTimeOptimVarRate)
-                            print('Difficulty increased to %f' %self.core.diff)
-            time.sleep(2)
+            if (len(self.core.chain) > 4):
+                if ((self.core.lastTimeCalcBlock != len(self.core.chain) - 1) and (len(self.core.chain) % 5 == 0)):
+                    self.core.lastTimeCalcBlock = len(self.core.chain) - 1 #Mark as calculated
+                    timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
+                    totalDiff = 0
+                    for i in range(5):
+                        blkPow = self.core.chain[-1 - i][1232:1744]
+                        blkHash = self.core.chain[-1 - i][1744:1808]
+                        totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
+                    avgDiff = totalDiff / 5
+                    avgTime = timeDuring / 5
+                    if (avgTime > self.core.blockTime):
+                        rate = (avgTime - self.core.blockTime) / avgTime
+                        self.core.diff = avgDiff * (1 - rate)
+                    elif (avgTime < self.core.blockTime):
+                        rate = (self.core.blockTime - avgTime) / self.core.blockTime
+                        self.core.diff = avgDiff * (1 + rate)
+                    print('Diff optim to %f' % self.core.diff)
+            time.sleep(1)
+
+    def optimDiffOnce(self):
+        if (len(self.core.chain) > 4):
+            if (len(self.core.chain) % 5 == 0):
+                self.core.lastTimeCalcBlock = len(self.core.chain) - 1
+                timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
+                totalDiff = 0
+                for i in range(5):
+                    blkPow = self.core.chain[-1 - i][1232:1744]
+                    blkHash = self.core.chain[-1 - i][1744:1808]
+                    totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
+                avgDiff = totalDiff / 5
+                avgTime = timeDuring / 5
+                if (avgTime > self.core.blockTime):
+                    rate = (avgTime - self.core.blockTime) / avgTime
+                    self.core.diff = avgDiff * (1 - rate)
+                elif (avgTime < self.core.blockTime):
+                    rate = (self.core.blockTime - avgTime) / self.core.blockTime
+                    self.core.diff = avgDiff * (1 + rate)
+                print('Diff = %f' % self.core.diff)
 
 if __name__ == '__main__':
     print('CO2Srv started.')
     myAddr = '6d731960af08e06ba3e84f660af4af9ccde5d47ba9070602a27687ba6e39b5cb778adcbca6fdef19e99edef115ec6fc9711867ae7e185922596c246f0734640d857c2d7e3f4d87aca6b02f7a891bdccd50ab712af753f0c7d987534bd94fab2b'
     fileHeight = 0
     mySrv = CO2Srv()
-    if(os.path.exists('chain.txt')):
+    if (os.path.exists('chain.txt')):
         mySrv.core.chain = open('chain.txt', 'r').readlines()
         fileHeight = len(mySrv.core.chain)
-    if(os.path.exists('nodelist.txt')):
+    if (os.path.exists('nodelist.txt')):
         mySrv.nodelist = open('nodelist.txt', 'r').readlines()
     mySrv.updateNodes()
     mySrv.syncHeight()
+    mySrv.optimDiffOnce()
     currentHeight = len(mySrv.core.chain)
     currentJobs = len(mySrv.core.jobs)
     net = Thread(target=mySrv.listener)
@@ -361,12 +386,8 @@ if __name__ == '__main__':
             mySrv.updateNodes()
             mySrv.syncHeight()
             for i in mySrv.nodelist:
-                open('nodelist.txt', 'a').write(i + '\n')
+                open('nodelist.txt', 'w').write(i + '\n')
             for i in range(fileHeight, len(mySrv.core.chain)):
                 open('chain.txt', 'a').write(mySrv.core.chain[i] + '\n')
             fileHeight = len(mySrv.core.chain)
         time.sleep(1)
-    
-            
-
-  

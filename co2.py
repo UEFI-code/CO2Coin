@@ -30,9 +30,7 @@ class CO2Core:
         self.rewardcoins = 128
         self.diff = 0.01
         self.blockTime =  30
-        self.blockTimeOptimVarA = 5
-        self.blockTimeOptimVarB = 3
-        self.blockTimeOptimVarRate = 0.1
+        self.lastTimeCalcBlock = 0
         if loadDL:
             self.proteinFolder = proteinFold.ProteinFold3D(20, 64, 0)
             self.MBEPredictor = MBEPredictor.MBEPredictor()
@@ -41,11 +39,11 @@ class CO2Core:
     def checkBalance(self, address):
         balance = 0
         for block in self.chain:
-            blockData = block[64:1024]
+            blockData = block[80:1040]
             sender = blockData[0:192]
             receiver = blockData[192:384]
             amount = blockData[384:448]
-            miner = block[1024:1216]
+            miner = block[1040:1232]
             if sender == address:
                 balance -= (int(amount) + self.fee)
             if receiver == address:
@@ -56,7 +54,7 @@ class CO2Core:
 
     def checkDoubleSpend(self, transaction):
         for block in self.chain:
-            blockData = block[64:1024]
+            blockData = block[80:1040]
             if blockData == transaction:
                 return True
         return False
@@ -82,11 +80,11 @@ class CO2Core:
 
     def verifyPoW(self, payload, hash):
         if len(payload) != 512:
-            return False
+            return False, 0
         for i in self.chain:
             if i[1216:1792] == payload:
                 print("Not your PoW!")
-                return False
+                return False, 0
         #RNA = []
         PepChain = []
         try:    
@@ -111,12 +109,12 @@ class CO2Core:
             energy = self.MBEPredictor(self.CO2Model, y).detach()[0][0]
             print('Binding Energy: %f' % float(energy))
             if energy > self.diff:
-                return True
+                return True, energy
             else:
-                return False
+                return False, energy
         except:
             print('verify PoW: unexcepted error')
-            return False
+            return False, 0
 
     def verifyBlock(self, block):
         if(len(block) != 1808):
@@ -140,7 +138,7 @@ class CO2Core:
         blockHash = block[1744:1808] # 64 bytes
         if(blockHash != sha256(blockPrivousHash + blockTimestamp + blockData + blockMiner + blockPoWPayload)):
             return False
-        return self.verifyPoW(blockPoWPayload, blockHash)
+        return self.verifyPoW(blockPoWPayload, blockHash)[0]
 
     def makeTransaction(self, sender, receiver, amount, asset, sk):
         transaction = sender + receiver + str(amount).zfill(64) + asset
