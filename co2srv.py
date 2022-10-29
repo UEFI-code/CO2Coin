@@ -310,7 +310,10 @@ class CO2Srv:
     def optimDiff(self):
         while True:
             if (len(self.core.chain) > 4):
-                if ((self.core.lastTimeCalcBlock != len(self.core.chain) - 1) and (len(self.core.chain) % 5 == 0)):
+                if((int(time.time()) - int(self.core.chain[-1][64:80]) + 1) % (2 * self.core.blockTime) == 0):
+                    self.core.diff = self.core.diff / 2
+                    print('Oh-no, timeout, force decreased diff to: %f' % self.core.diff)
+                elif((self.core.lastTimeCalcBlock != len(self.core.chain) - 1) and (len(self.core.chain) % 5 == 0)):
                     self.core.lastTimeCalcBlock = len(self.core.chain) - 1 #Mark as calculated
                     timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
                     totalDiff = 0
@@ -318,8 +321,8 @@ class CO2Srv:
                         blkPow = self.core.chain[-1 - i][1232:1744]
                         blkHash = self.core.chain[-1 - i][1744:1808]
                         totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
-                    avgDiff = totalDiff / 5
-                    avgTime = timeDuring / 5
+                    avgDiff = totalDiff / 4
+                    avgTime = timeDuring / 4
                     if (avgTime > self.core.blockTime):
                         rate = (avgTime - self.core.blockTime) / avgTime
                         self.core.diff = avgDiff * (1 - rate)
