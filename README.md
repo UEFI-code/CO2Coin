@@ -1,4 +1,4 @@
-# CO2Coin
+# EarthCooler CO2Coin
 
 ## What is it?
 
