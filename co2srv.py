@@ -1,13 +1,8 @@
 # Copyright (C) 2022 by The CO2 Project
 # SuperHacker UEFI
 # Path: co2srv.py
-
-from cgi import test
-from codecs import getreader
 from random import randint
-from site import removeduppaths
 import socket
-from tkinter import E
 from co2 import CO2Core as CO2Core
 from threading import Thread
 import os
