@@ -20,7 +20,10 @@ def sign(msg, sk):
     return SigningKey.from_string(bytes.fromhex(sk), curve=NIST384p).sign(msg.encode()).hex()
 
 def verifySig(msg, sig, vk):
-    return VerifyingKey.from_string(bytes.fromhex(vk), curve=NIST384p).verify(bytes.fromhex(sig), msg.encode())
+    try:
+        return VerifyingKey.from_string(bytes.fromhex(vk), curve=NIST384p).verify(bytes.fromhex(sig), msg.encode())
+    except:
+        return False
 
 class CO2Core:
     def __init__(self, loadDL = True):
@@ -39,11 +42,11 @@ class CO2Core:
     def checkBalance(self, address):
         balance = 0
         for block in self.chain:
-            blockData = block[80:1040]
+            blockData = block[96:1056] # 960 bytes
             sender = blockData[0:192]
             receiver = blockData[192:384]
             amount = blockData[384:448]
-            miner = block[1040:1232]
+            miner = block[1056:1248]
             if sender == address:
                 balance -= (int(amount) + self.fee)
             if receiver == address:
@@ -52,39 +55,60 @@ class CO2Core:
                 balance += self.rewardcoins
         return balance
 
-    def checkDoubleSpend(self, transaction):
-        for block in self.chain:
-            blockData = block[80:1040]
-            if blockData == transaction:
-                return True
-        return False
+    # def checkDoubleSpend(self, transaction):
+    #     for block in self.chain:
+    #         blockData = block[80:1040]
+    #         if blockData == transaction:
+    #             return True
+    #     return False
 
     def verifyTransaction(self, transaction):
-        if self.checkDoubleSpend(transaction):
-            return False
+        # if self.checkDoubleSpend(transaction):
+        #     return False
+        blockID = str(len(self.chain)).zfill(16)
         sender = transaction[0:192]
         receiver = transaction[192:384]
         if sender == "0" * 192 and receiver == "0" * 192:
-            if(len(self.jobs) == 0):
-                print("No jobs to verify, but may give you white mined reward!")
-                return True
-            print('Pls verify blocks, don\'t do white mining!')
-            return False
+            if(len(self.jobs) != 0):
+                print('Pls verify blocks, don\'t do white mining!')
+                return False
+            print("No jobs to verify, but may give you white mined reward!")
+            print('White Transaction Public Key is Missing, bypass this check!')
+            return True
+        
         amount = transaction[384:448] # 64 bytes
         asset = transaction[448:768]  # 320 bytes
         if(int(amount) <= 0 or (self.checkBalance(sender) - self.fee) < int(amount)):
-            return False
+            #return False
+            resultMoney = False
+        else:
+            resultMoney= True
         sig = transaction[768:960]  # 192 bytes
-        hash = sha256(sender + receiver + amount + asset)
-        return verifySig(hash, sig, sender)
+        hash = sha256(blockID + sender + receiver + amount + asset)
+        resultSig = verifySig(hash, sig, sender)
+
+        print('----verfiyTransaction Debug----')
+        print('Current Work blockID: %s' %blockID)
+        print('Sender: %s' %sender)
+        print('Receiver: %s' %receiver)
+        print('Amount: %s' %amount)
+        print('Balance: %d' %self.checkBalance(sender))
+        print('IsMoneyValid: %s' %resultMoney)
+        print('Asset: %s' %asset)
+        print('Sig: %s' %sig)
+        print('Hash: %s' %hash)
+        print('IsSignatureValid: %s' %resultSig)
+        print('----End of Debug----')
+
+        return resultSig and resultMoney
 
     def verifyPoW(self, payload, hash):
         if len(payload) != 512:
             return False, 0
-        for i in self.chain:
-            if i[1216:1792] == payload:
-                print("Not your PoW!")
-                return False, 0
+        # for i in self.chain:
+        #     if i[1216:1792] == payload:
+        #         print("Not your PoW!")
+        #         return False, 0
         #RNA = []
         PepChain = []
         try:    
@@ -117,48 +141,56 @@ class CO2Core:
             return False, 0
 
     def verifyBlock(self, block):
-        if(len(block) != 1808):
+        if(len(block) != 1824):
             # Data length is wrong
             return False
         if len(self.chain) == 0:
             previousHash = "0" * 64
         else:
-            previousHash = self.chain[-1][1744:1808]
+            previousHash = self.chain[-1][1760:1824]
         blockPrivousHash = block[0:64]
         if(blockPrivousHash != previousHash):
             return False
-        blockTimestamp = block[64:80]
+        blockID = block[64:80]
+        if(int(blockID) != len(self.chain)):
+            # Maybe missing some blocks
+            return False
+        blockTimestamp = block[80:96]
         if(int(blockTimestamp) > int(time())):
             return False
-        blockData = block[80:1040] # 960 bytes
+        blockData = block[96:1056] # 960 bytes
         if not self.verifyTransaction(blockData):
             return False
-        blockMiner = block[1040:1232] # 192 bytes
-        blockPoWPayload = block[1232:1744] # 512 bytes
-        blockHash = block[1744:1808] # 64 bytes
-        if(blockHash != sha256(blockPrivousHash + blockTimestamp + blockData + blockMiner + blockPoWPayload)):
+        blockMiner = block[1056:1248] # 192 bytes
+        blockPoWPayload = block[1248:1760] # 512 bytes
+        blockHash = block[1760:1824] # 64 bytes
+        if(blockHash != sha256(blockPrivousHash + blockID + blockTimestamp + blockData + blockMiner + blockPoWPayload)):
             return False
         return self.verifyPoW(blockPoWPayload, blockHash)[0]
 
-    def makeTransaction(self, sender, receiver, amount, asset, sk):
+    def makeTransaction(self, blkID, sender, receiver, amount, asset, sk):
         transaction = sender + receiver + str(amount).zfill(64) + asset
-        sig = sign(sha256(transaction), sk)
+        sig = sign(sha256(blkID + transaction), sk)
         return transaction + sig
 
     def makeWhiteTransaction(self):
-        return self.makeTransaction("0" * 192, "0" * 192, 0, "!" * 320, SigningKey.generate(curve=NIST384p).to_string().hex())
+        # Only using in Mining
+        blockID = str(len(self.chain)).zfill(16)
+        return self.makeTransaction(blockID, "0" * 192, "0" * 192, 0, "!" * 320, SigningKey.generate(curve=NIST384p).to_string().hex())
 
     def makeBlock(self, transaction, miner, pow):
         if len(self.chain) == 0:
             previousHash = "0" * 64
         else:
-            previousHash = self.chain[-1][1744:1808]
+            previousHash = self.chain[-1][1760:1824]
+        blockID = str(len(self.chain)).zfill(16)
         timestamp = str(int(time())).zfill(16)
-        block = previousHash + timestamp + transaction + miner + pow
+        block = previousHash + blockID + timestamp + transaction + miner + pow
         return block + sha256(block)
 
     def makeWhiteMiningReward(self, receiver, pow):
-        whiteTrans = self.makeTransaction("0" * 192, "0" * 192, 0, "!" * 320, SigningKey.generate(curve=NIST384p).to_string().hex())
+        blockID = str(len(self.chain)).zfill(16)
+        whiteTrans = self.makeTransaction(blockID, "0" * 192, "0" * 192, 0, "!" * 320, SigningKey.generate(curve=NIST384p).to_string().hex())
         minedBlock = self.makeBlock(whiteTrans, receiver, pow)
         if self.verifyBlock(minedBlock):
             self.chain.append(minedBlock)
@@ -177,20 +209,23 @@ def demo():
         print("White mining success!")
     else:
         print("White mining failed!")
-    res = myobj.makeWhiteMiningReward(vk1, 'g' * 512)
-    if res:
-        print("White mining success!")
-    else:
-        print("White mining failed!")
-
+    # res = myobj.makeWhiteMiningReward(vk1, 'g' * 512)
+    # if res:
+    #     print("White mining success!")
+    # else:
+    #     print("White mining failed!")
     print("Balance of vk1: " + str(myobj.checkBalance(vk1)))
-    trans = myobj.makeTransaction(vk1, vk2, 12, '0' * 320, sk1)
+
+    blockID = str(len(myobj.chain)).zfill(16)
+    trans = myobj.makeTransaction(blockID, vk1, vk2, 12, '0' * 320, sk1)
     if trans != False:
         block = myobj.makeBlock(trans, vk2, '7' * 512)
         if myobj.verifyBlock(block):
             print("Block is valid")
             myobj.chain.append(block)
-    trans = myobj.makeTransaction(vk1, vk2, 12, '0' * 320, sk1)
+
+    blockID = str(len(myobj.chain)).zfill(16)
+    trans = myobj.makeTransaction(blockID, vk1, vk2, 12, '0' * 320, sk1)
     if trans != False:
         block = myobj.makeBlock(trans, vk2, 'i' * 512)
         if myobj.verifyBlock(block):

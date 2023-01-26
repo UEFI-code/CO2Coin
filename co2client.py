@@ -13,6 +13,18 @@ class CO2Client:
         self.node = socket.gethostname()
         self.port = 2333
     
+    def getBlockHeight(self):
+        s = socket.socket()
+        s.settimeout(3)
+        s.connect((self.node, self.port))
+        if s.recv(32).decode() == 'CO2Srv':
+            s.send(b'getblockheight')
+            buf = s.recv(32)
+            s.close()
+            return int(buf.decode())
+        else:
+            print('node Error!')
+
     def publishBlock(self, block):
         s = socket.socket()
         s.connect((self.node, self.port))
@@ -76,10 +88,21 @@ if __name__ == '__main__':
     my_addr = '6d731960af08e06ba3e84f660af4af9ccde5d47ba9070602a27687ba6e39b5cb778adcbca6fdef19e99edef115ec6fc9711867ae7e185922596c246f0734640d857c2d7e3f4d87aca6b02f7a891bdccd50ab712af753f0c7d987534bd94fab2b'
     target_addr = '75d6c47c5287e9b81fb8472d9ebf6635b5e20f5156d4bacb395997767790120b21fbd9ca67d7eed13ff68e3d8de25bd41ffa661742dcd41a00d83f02bcffd0205f248ea2dcb9432454de53097c78f79e6e0f50f5831ddb8ef4e57e7d1288e82e'
     myClient = CO2Client()
-    print('Balance before tx: %d' %myClient.getBalance(target_addr))
-    tx = myClient.core.makeTransaction(my_addr, target_addr, 233, 'n' * 320, my_key)
+
+    myBalance = myClient.getBalance(my_addr)
+    targetBalance = myClient.getBalance(target_addr)
+
+    print('Our balance before tx: %d' %myBalance)
+    print('Target balance before tx: %d' %targetBalance)
+
+    if myBalance < 234:
+        print('!!!We have Not enough balance!!!')
+    
+    blockID = str(myClient.getBlockHeight()).zfill(16)
+    print('BlockID: %s' %blockID)
+    tx = myClient.core.makeTransaction(blockID, my_addr, target_addr, 233, 'n' * 320, my_key)
     print(tx)
     myClient.publishTransaction(tx)
-    time.sleep(18)
+    time.sleep(30)
     print('Balance after tx: %d' %myClient.getBalance(target_addr))
     

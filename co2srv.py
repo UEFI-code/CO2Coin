@@ -32,7 +32,7 @@ class CO2Srv:
 
     def removeJobByBlock(self, block):
         for i in range(len(self.core.jobs)):
-            if self.core.jobs[i] == block[64:1024]:
+            if self.core.jobs[i] == block[96:1056]:
                 self.core.jobs.pop(i)
                 break
 
@@ -267,31 +267,37 @@ class CO2Srv:
         while True:
             if len(self.core.jobs) != 0:
                 myjob = self.core.jobs[-1]
+                # One step before mining, check if the job is stale
+                if self.core.verifyTransaction(myjob) == False:
+                    print('Stale job!')
+                    self.core.jobs.pop()
+                    continue
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
-                myBlockHash = myBlock[1744:1808]
+                myBlockHash = myBlock[1760:1824]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)[0]):
                     myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(myjob, myAddr, myPoWPayload)
-                    myBlockHash = myBlock[1744:1808]
+                    myBlockHash = myBlock[1760:1824]
                 if self.miner_need_restart:  # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
                 if self.core.verifyBlock(myBlock):
                     # make main thread to publish!
                     self.core.chain.append(myBlock)
-                    self.removeJobByBlock(myBlock)
+                    #self.removeJobByBlock(myBlock)
+                    self.core.jobs.pop()
                     print('Block %d mined!' % len(self.core.chain))
             else:
                 whiteTrans = self.core.makeWhiteTransaction()
                 myPoWPayload = genRandPow(512)
                 myBlock = self.core.makeBlock(whiteTrans, myAddr, myPoWPayload)
-                myBlockHash = myBlock[1744:1808]
+                myBlockHash = myBlock[1760:1824]
                 while not (self.miner_need_restart or self.core.verifyPoW(myPoWPayload, myBlockHash)[0]):
                     myPoWPayload = genRandPow(512)
                     myBlock = self.core.makeBlock(
                         whiteTrans, myAddr, myPoWPayload)
-                    myBlockHash = myBlock[1744:1808]
+                    myBlockHash = myBlock[1760:1824]
                 if self.miner_need_restart:  # Shit No goto command in python caused this!
                     self.miner_need_restart = False
                     continue
@@ -300,7 +306,7 @@ class CO2Srv:
                     print('White Block %d mined!' % len(self.core.chain))
                 else:
                     print('White Block verification failed!')
-            time.sleep(5)
+            time.sleep(30)
 
     def optimDiff(self):
         while True:
@@ -313,8 +319,8 @@ class CO2Srv:
                     timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
                     totalDiff = 0
                     for i in range(5):
-                        blkPow = self.core.chain[-1 - i][1232:1744]
-                        blkHash = self.core.chain[-1 - i][1744:1808]
+                        blkPow = self.core.chain[-1 - i][1248:1760]
+                        blkHash = self.core.chain[-1 - i][1760:1824]
                         totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
                     avgDiff = totalDiff / 4
                     avgTime = timeDuring / 4
@@ -334,8 +340,8 @@ class CO2Srv:
                 timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
                 totalDiff = 0
                 for i in range(5):
-                    blkPow = self.core.chain[-1 - i][1232:1744]
-                    blkHash = self.core.chain[-1 - i][1744:1808]
+                    blkPow = self.core.chain[-1 - i][1248:1760]
+                    blkHash = self.core.chain[-1 - i][1760:1824]
                     totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
                 avgDiff = totalDiff / 5
                 avgTime = timeDuring / 5
