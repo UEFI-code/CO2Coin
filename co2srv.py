@@ -311,18 +311,18 @@ class CO2Srv:
     def optimDiff(self):
         while True:
             if (len(self.core.chain) > 4):
-                if((int(time.time()) - int(self.core.chain[-1][64:80]) + 1) % (2 * self.core.blockTime) == 0):
+                if((int(time.time()) - int(self.core.chain[-1][80:96]) + 1) % (2 * self.core.blockTime) == 0):
                     self.core.diff = self.core.diff / 2
                     print('Oh-no, timeout, force decreased diff to: %f' % self.core.diff)
                 elif((self.core.lastTimeCalcBlock != len(self.core.chain) - 1) and (len(self.core.chain) % 5 == 0)):
                     self.core.lastTimeCalcBlock = len(self.core.chain) - 1 #Mark as calculated
-                    timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
+                    timeDuring = int(self.core.chain[-1][80:96]) - int(self.core.chain[-5][80:96])
                     totalDiff = 0
                     for i in range(5):
                         blkPow = self.core.chain[-1 - i][1248:1760]
                         blkHash = self.core.chain[-1 - i][1760:1824]
                         totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
-                    avgDiff = totalDiff / 4
+                    avgDiff = totalDiff / 5
                     avgTime = timeDuring / 4
                     if (avgTime > self.core.blockTime):
                         rate = (avgTime - self.core.blockTime) / avgTime
@@ -330,21 +330,22 @@ class CO2Srv:
                     elif (avgTime < self.core.blockTime):
                         rate = (self.core.blockTime - avgTime) / self.core.blockTime
                         self.core.diff = avgDiff * (1 + rate)
-                    print('Diff optim to %f' % self.core.diff)
+                    print('Block Average time %f, Diff optim to %f' % (avgTime, self.core.diff))
             time.sleep(1)
 
     def optimDiffOnce(self):
         if (len(self.core.chain) > 4):
             if (len(self.core.chain) % 5 == 0):
-                self.core.lastTimeCalcBlock = len(self.core.chain) - 1
-                timeDuring = int(self.core.chain[-1][64:80]) - int(self.core.chain[-5][64:80])
+                meetBlkID = int(((len(self.core.chain) - 1) // 5) * 5)
+                self.core.lastTimeCalcBlock = meetBlkID
+                timeDuring = int(self.core.chain[meetBlkID][80:96]) - int(self.core.chain[meetBlkID - 4][80:96])
                 totalDiff = 0
                 for i in range(5):
-                    blkPow = self.core.chain[-1 - i][1248:1760]
-                    blkHash = self.core.chain[-1 - i][1760:1824]
+                    blkPow = self.core.chain[meetBlkID - i][1248:1760]
+                    blkHash = self.core.chain[meetBlkID - i][1760:1824]
                     totalDiff += self.core.verifyPoW(blkPow, blkHash)[1]
                 avgDiff = totalDiff / 5
-                avgTime = timeDuring / 5
+                avgTime = timeDuring / 4
                 if (avgTime > self.core.blockTime):
                     rate = (avgTime - self.core.blockTime) / avgTime
                     self.core.diff = avgDiff * (1 - rate)
