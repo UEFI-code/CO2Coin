@@ -1,7 +1,8 @@
 Project CO2Coin by EarthCooler Licenses
 
 EarthCooler CO2Coin:
-Shizhuo Zhang and Yue Fang All rights reserved.
+
+Coding: Shizhuo Zhang
 
 -----------------------------------
 This project using opensource codes:
@@ -14,6 +15,9 @@ https://github.com/tlsfuzzer/python-ecdsa/blob/master/LICENSE
 
 PyTorch:
 https://github.com/pytorch/pytorch/blob/master/LICENSE
+
+Inno Setup Compiler
+https://jrsoftware.org/files/is/license.txt
 ----------------------------------
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"

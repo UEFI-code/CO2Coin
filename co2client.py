@@ -105,4 +105,6 @@ if __name__ == '__main__':
     myClient.publishTransaction(tx)
     time.sleep(30)
     print('Balance after tx: %d' %myClient.getBalance(target_addr))
+
+    os.system('pause')
     
