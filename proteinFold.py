@@ -51,7 +51,7 @@ class ProteinFold3D(nn.Module):
             nn.ReLU()
         )
         self.myTransformer1D_G = nn.Sequential(
-            myTransformer1D(768, 512),
+            myTransformer1D(704, 512),
             myTransformer1D(512, 512),
             myTransformer1D(512, 512)
         )

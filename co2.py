@@ -105,6 +105,9 @@ class CO2Core:
     def verifyPoW(self, payload, hash):
         if len(payload) != 512:
             return False, 0
+        if len(hash) != 64:
+            print("Hash length is wrong!" + str(len(hash)))
+            return False, 0
         # for i in self.chain:
         #     if i[1216:1792] == payload:
         #         print("Not your PoW!")
@@ -112,7 +115,6 @@ class CO2Core:
         #RNA = []
         PepChain = []
         try:    
-            j = 0
             for i in range(512):
                 # numA = int(payload[i], 16) % 4
                 # numB = (int(payload[i], 16) >> 2) % 4
@@ -120,14 +122,14 @@ class CO2Core:
                 # RNA.append(numB)
                 num = int(payload[i], 20)
                 PepChain.append(num)
-                if i % 8 == 0:
+                if i % 16 == 0:
+                    j = i // 16
                     # numA = int(hash[j], 16) % 4
                     # numB = (int(hash[j], 16) >> 2) % 4
                     # RNA.append(numA)
                     # RNA.append(numB)
-                    num = int(hash[j], 16)
+                    num = (int(hash[j*2:j*2+1], 16) + 1) % 20
                     PepChain.append(num)
-                    j += 1
             #print(RNA)
             y = self.proteinFolder(PepChain)
             energy = self.MBEPredictor(self.CO2Model, y).detach()[0][0]
@@ -136,8 +138,8 @@ class CO2Core:
                 return True, energy
             else:
                 return False, energy
-        except:
-            print('verify PoW: unexcepted error')
+        except Exception as e:
+            print('verify PoW: ' + str(e))
             return False, 0
 
     def verifyBlock(self, block):
